@@ -15,7 +15,7 @@ local library = {
     hidden = {},
     connections = {},
     pointers = {},
-    began = false,
+    began = {},
     ended = {},
     changed = {},
     folders = {
@@ -309,15 +309,44 @@ do
         return ws.CurrentCamera.ViewportSize
     end
     --
+    local imageCache = {}
+    local lastRequestTime = 0
+    local minimumRequestInterval = 0.5 -- 500ms between requests
+    
     function utility:LoadImage(instance, imageName, imageLink)
         local data
         --
-        if isfile(library.folders.assets.."/"..imageName..".png") then
+        -- Check cache first
+        if imageCache[imageName] then
+            data = imageCache[imageName]
+        elseif isfile(library.folders.assets.."/"..imageName..".png") then
             data = readfile(library.folders.assets.."/"..imageName..".png")
+            imageCache[imageName] = data
         else
             if imageLink then
-                data = game:HttpGet(imageLink, true)
-                writefile(library.folders.assets.."/"..imageName..".png", data)
+                -- Add rate limiting
+                local currentTime = tick()
+                local timeSinceLastRequest = currentTime - lastRequestTime
+                
+                if timeSinceLastRequest < minimumRequestInterval then
+                    wait(minimumRequestInterval - timeSinceLastRequest)
+                end
+                
+                -- Use pcall to handle potential errors
+                local success, result = pcall(function()
+                    return game:HttpGet(imageLink, true)
+                end)
+                
+                if success then
+                    data = result
+                    writefile(library.folders.assets.."/"..imageName..".png", data)
+                    imageCache[imageName] = data
+                else
+                    warn("Failed to load image: " .. imageLink)
+                    return
+                end
+                
+                lastRequestTime = tick()
             else
                 return
             end
@@ -952,6 +981,9 @@ do
             window:Fade()
         end
         --
+if type(library.began) ~= "table" then
+    library.began = {}
+end
         library.began[#library.began + 1] = function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and window.isVisible and window.isVisible and utility:MouseOverDrawing({main_frame.Position.X,main_frame.Position.Y,main_frame.Position.X + main_frame.Size.X,main_frame.Position.Y + 20}) then
                 local mouseLocation = utility:MouseLocation()
@@ -1409,7 +1441,7 @@ do
             Visible = page.open
         }, section.visibleContent)
         --
-        utility:LoadImage(toggle__gradient, "gradient", "rbxassetid://13521932759")
+        utility:LoadImage(toggle__gradient, "gradient", "https://i.imgur.com/vHMmVzG.png")
         --
         function toggle:Get()
             return toggle.current

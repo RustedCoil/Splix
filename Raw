@@ -342,7 +342,6 @@ do
                     writefile(library.folders.assets.."/"..imageName..".png", data)
                     imageCache[imageName] = data
                 else
-                    warn("Failed to load image: " .. imageLink)
                     return
                 end
                 
